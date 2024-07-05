@@ -1,50 +1,92 @@
 // Filename: index.js
 // Combined code from all files
 
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { SafeAreaView, StyleSheet, Text, FlatList, View, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { SafeAreaView, StyleSheet, View, Text, Button } from 'react-native';
 
-const Stack = createStackNavigator();
+const CELL_SIZE = 20;
+const BOARD_SIZE = 300;
 
-const fairyTales = [
-    {
-        id: '1',
-        title: 'Cinderella',
-        image: 'https://picsum.photos/200/300',
-        description: 'Once upon a time, in a faraway kingdom, lived a kind-hearted girl named Cinderella...'
-    },
-    {
-        id: '2',
-        title: 'Snow White',
-        image: 'https://picsum.photos/200/300',
-        description: 'Once upon a time, in a small village, a beautiful young girl named Snow White lived...'
-    },
-    {
-        id: '3',
-        title: 'Sleeping Beauty',
-        image: 'https://picsum.photos/200/300',
-        description: 'Once upon a time, in a faraway land, a princess named Aurora was born...'
-    }
-];
+const getRandomCoordinate = () => {
+    const max = BOARD_SIZE / CELL_SIZE;
+    return Math.floor(Math.random() * max) * CELL_SIZE;
+};
 
-const HomeScreen = ({ navigation }) => {
-    const renderItem = ({ item }) => (
-        <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Details', { story: item })}>
-            <Image source={{ uri: item.image }} style={styles.image} />
-            <Text style={styles.title}>{item.title}</Text>
-        </TouchableOpacity>
-    );
+const App = () => {
+    const [snake, setSnake] = useState([
+        { x: 100, y: 100 }
+    ]);
+    const [direction, setDirection] = useState({ x: 0, y: -CELL_SIZE });
+    const [food, setFood] = useState({ x: getRandomCoordinate(), y: getRandomCoordinate() });
+    const [isGameOver, setIsGameOver] = useState(false);
+    const intervalRef = useRef(null);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'ArrowUp') setDirection({ x: 0, y: -CELL_SIZE });
+            else if (e.key === 'ArrowDown') setDirection({ x: 0, y: CELL_SIZE });
+            else if (e.key === 'ArrowLeft') setDirection({ x: -CELL_SIZE, y: 0 });
+            else if (e.key === 'ArrowRight') setDirection({ x: CELL_SIZE, y: 0 });
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    useEffect(() => {
+        if (!isGameOver) {
+            intervalRef.current = setInterval(moveSnake, 200);
+        }
+        return () => clearInterval(intervalRef.current);
+    }, [snake, direction, food, isGameOver]);
+
+    const moveSnake = () => {
+        let newSnake = [...snake];
+        let head = { ...newSnake[0] };
+
+        head.x += direction.x;
+        head.y += direction.y;
+
+        if (head.x < 0 || head.y < 0 || head.x >= BOARD_SIZE || head.y >= BOARD_SIZE ||
+            newSnake.some(segment => segment.x === head.x && segment.y === head.y)) {
+            setIsGameOver(true);
+            clearInterval(intervalRef.current);
+            return;
+        }
+
+        newSnake.unshift(head);
+
+        if (head.x === food.x && head.y === food.y) {
+            setFood({ x: getRandomCoordinate(), y: getRandomCoordinate() });
+        } else {
+            newSnake.pop();
+        }
+
+        setSnake(newSnake);
+    };
+
+    const resetGame = () => {
+        setSnake([{ x: 100, y: 100 }]);
+        setDirection({ x: 0, y: -CELL_SIZE });
+        setFood({ x: getRandomCoordinate(), y: getRandomCoordinate() });
+        setIsGameOver(false);
+    };
 
     return (
         <SafeAreaView style={styles.container}>
-            <FlatList
-                data={fairyTales}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
-            />
+            <Text style={styles.title}>Snake Game</Text>
+            <View style={styles.board}>
+                {snake.map((segment, index) => (
+                    <View key={index} style={[styles.snake, { left: segment.x, top: segment.y }]} />
+                ))}
+                <View style={[styles.food, { left: food.x, top: food.y }]} />
+            </View>
+            {isGameOver && (
+                <View style={styles.gameOver}>
+                    <Text style={styles.gameOverText}>Game Over</Text>
+                    <Button title="Restart" onPress={resetGame} />
+                </View>
+            )}
         </SafeAreaView>
     );
 };
@@ -52,80 +94,47 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
-        backgroundColor: '#FFFFFF',
-    },
-    list: {
         alignItems: 'center',
-    },
-    card: {
-        backgroundColor: '#FFFBF0',
-        padding: 20,
-        borderRadius: 10,
-        marginBottom: 20,
-        width: '90%',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
-    },
-    image: {
-        width: '100%',
-        height: 200,
-        borderRadius: 10,
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginTop: 10,
-    },
-});
-
-const DetailsScreen = ({ route }) => {
-    const { story } = route.params;
-
-    return (
-        <SafeAreaView style={detailsStyles.container}>
-            <Image source={{ uri: story.image }} style={detailsStyles.image} />
-            <Text style={detailsStyles.title}>{story.title}</Text>
-            <Text style={detailsStyles.description}>{story.description}</Text>
-        </SafeAreaView>
-    );
-};
-
-const detailsStyles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#FFFFFF',
-    },
-    image: {
-        width: '100%',
-        height: 200,
-        borderRadius: 10,
-        marginBottom: 20,
+        justifyContent: 'center',
+        backgroundColor: '#F0F0F0',
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 20,
     },
-    description: {
-        fontSize: 16,
+    board: {
+        width: BOARD_SIZE,
+        height: BOARD_SIZE,
+        backgroundColor: '#FFF',
+        borderColor: '#000',
+        borderWidth: 1,
+        position: 'relative',
+    },
+    snake: {
+        width: CELL_SIZE,
+        height: CELL_SIZE,
+        position: 'absolute',
+        backgroundColor: 'green',
+    },
+    food: {
+        width: CELL_SIZE,
+        height: CELL_SIZE,
+        position: 'absolute',
+        backgroundColor: 'red',
+    },
+    gameOver: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: [{ translateX: -50 }, { translateY: -50 }],
+        alignItems: 'center',
+    },
+    gameOverText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 10,
     },
 });
 
-export default function App() {
-    return (
-        <NavigationContainer>
-            <Stack.Navigator initialRouteName="Home">
-                <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Fairy Tales' }} />
-                <Stack.Screen name="Details" component={DetailsScreen} options={{ title: 'Story Details' }} />
-            </Stack.Navigator>
-        </NavigationContainer>
-    );
-}
+export default App;
