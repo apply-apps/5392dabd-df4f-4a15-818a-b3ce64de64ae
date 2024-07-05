@@ -1,6 +1,12 @@
 // Filename: index.js
+// Combined code from all files
+
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, FlatList, View, Image } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { SafeAreaView, StyleSheet, Text, FlatList, View, Image, TouchableOpacity } from 'react-native';
+
+const Stack = createStackNavigator();
 
 const fairyTales = [
     {
@@ -23,45 +29,31 @@ const fairyTales = [
     }
 ];
 
-const FairyTales = () => {
+const HomeScreen = ({ navigation }) => {
     const renderItem = ({ item }) => (
-        <View style={styles.card}>
+        <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Details', { story: item })}>
             <Image source={{ uri: item.image }} style={styles.image} />
             <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
-        </View>
+        </TouchableOpacity>
     );
 
-    return (
-        <FlatList
-            data={fairyTales}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.list}
-        />
-    );
-};
-
-export default function App() {
     return (
         <SafeAreaView style={styles.container}>
-            <Text style={styles.headerTitle}>Fairy Tales for Kids</Text>
-            <FairyTales />
+            <FlatList
+                data={fairyTales}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.list}
+            />
         </SafeAreaView>
     );
-}
+};
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
         backgroundColor: '#FFFFFF',
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        textAlign: 'center',
     },
     list: {
         alignItems: 'center',
@@ -91,8 +83,49 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: 10,
     },
+});
+
+const DetailsScreen = ({ route }) => {
+    const { story } = route.params;
+
+    return (
+        <SafeAreaView style={detailsStyles.container}>
+            <Image source={{ uri: story.image }} style={detailsStyles.image} />
+            <Text style={detailsStyles.title}>{story.title}</Text>
+            <Text style={detailsStyles.description}>{story.description}</Text>
+        </SafeAreaView>
+    );
+};
+
+const detailsStyles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 20,
+        backgroundColor: '#FFFFFF',
+    },
+    image: {
+        width: '100%',
+        height: 200,
+        borderRadius: 10,
+        marginBottom: 20,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 20,
+    },
     description: {
-        marginTop: 10,
         fontSize: 16,
     },
 });
+
+export default function App() {
+    return (
+        <NavigationContainer>
+            <Stack.Navigator initialRouteName="Home">
+                <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Fairy Tales' }} />
+                <Stack.Screen name="Details" component={DetailsScreen} options={{ title: 'Story Details' }} />
+            </Stack.Navigator>
+        </NavigationContainer>
+    );
+}
