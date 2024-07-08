@@ -1,11 +1,11 @@
 // Filename: index.js
 // Combined code from all files
-
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, Button, View } from 'react-native';
 import { useAuthRequest, makeRedirectUri } from 'expo-auth-session';
 import axios from 'axios';
 
+// Ensure you update this CLIENT_ID with the one generated in your Google Cloud project.
 const CLIENT_ID = 'YOUR_CLIENT_ID';
 const DISCOVERY = {
   authorizationEndpoint: 'https://accounts.google.com/o/oauth2/auth',
@@ -17,7 +17,10 @@ const App = () => {
     {
       clientId: CLIENT_ID,
       scopes: ['https://www.googleapis.com/auth/fitness.activity.read'],
-      redirectUri: makeRedirectUri({ useProxy: true }),
+      redirectUri: makeRedirectUri({
+        useProxy: true,
+        native: 'your.app.scheme:/oauthredirect',
+      }),
     },
     DISCOVERY
   );
