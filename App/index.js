@@ -1,140 +1,95 @@
 // Filename: index.js
 // Combined code from all files
 
-import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView, StyleSheet, View, Text, Button } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { SafeAreaView, StyleSheet, Text, Button, View } from 'react-native';
+import { useAuthRequest, makeRedirectUri } from 'expo-auth-session';
+import axios from 'axios';
 
-const CELL_SIZE = 20;
-const BOARD_SIZE = 300;
-
-const getRandomCoordinate = () => {
-    const max = BOARD_SIZE / CELL_SIZE;
-    return Math.floor(Math.random() * max) * CELL_SIZE;
+const CLIENT_ID = 'YOUR_CLIENT_ID';
+const DISCOVERY = {
+  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/auth',
+  tokenEndpoint: 'https://oauth2.googleapis.com/token',
 };
 
 const App = () => {
-    const [snake, setSnake] = useState([
-        { x: 100, y: 100 }
-    ]);
-    const [direction, setDirection] = useState({ x: 0, y: -CELL_SIZE });
-    const [food, setFood] = useState({ x: getRandomCoordinate(), y: getRandomCoordinate() });
-    const [isGameOver, setIsGameOver] = useState(false);
-    const intervalRef = useRef(null);
+  const [request, response, promptAsync] = useAuthRequest(
+    {
+      clientId: CLIENT_ID,
+      scopes: ['https://www.googleapis.com/auth/fitness.activity.read'],
+      redirectUri: makeRedirectUri({ useProxy: true }),
+    },
+    DISCOVERY
+  );
 
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === 'ArrowUp') setDirection({ x: 0, y: -CELL_SIZE });
-            else if (e.key === 'ArrowDown') setDirection({ x: 0, y: CELL_SIZE });
-            else if (e.key === 'ArrowLeft') setDirection({ x: -CELL_SIZE, y: 0 });
-            else if (e.key === 'ArrowRight') setDirection({ x: CELL_SIZE, y: 0 });
-        };
+  const [accessToken, setAccessToken] = useState(null);
+  const [healthData, setHealthData] = useState(null);
 
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, []);
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      setAccessToken(authentication.accessToken);
+    }
+  }, [response]);
 
-    useEffect(() => {
-        if (!isGameOver) {
-            intervalRef.current = setInterval(moveSnake, 200);
-        }
-        return () => clearInterval(intervalRef.current);
-    }, [snake, direction, food, isGameOver]);
+  const getHealthData = async () => {
+    if (!accessToken) return;
 
-    const moveSnake = () => {
-        let newSnake = [...snake];
-        let head = { ...newSnake[0] };
+    try {
+      const res = await axios.get('https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          aggregateBy: [{ dataTypeName: 'com.google.step_count.delta' }],
+          bucketByTime: { durationMillis: 86400000 },
+          startTimeMillis: new Date().setHours(0, 0, 0, 0),
+          endTimeMillis: new Date().getTime(),
+        },
+      });
+      setHealthData(res.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
-        head.x += direction.x;
-        head.y += direction.y;
-
-        if (head.x < 0 || head.y < 0 || head.x >= BOARD_SIZE || head.y >= BOARD_SIZE ||
-            newSnake.some(segment => segment.x === head.x && segment.y === head.y)) {
-            setIsGameOver(true);
-            clearInterval(intervalRef.current);
-            return;
-        }
-
-        newSnake.unshift(head);
-
-        if (head.x === food.x && head.y === food.y) {
-            setFood({ x: getRandomCoordinate(), y: getRandomCoordinate() });
-        } else {
-            newSnake.pop();
-        }
-
-        setSnake(newSnake);
-    };
-
-    const resetGame = () => {
-        setSnake([{ x: 100, y: 100 }]);
-        setDirection({ x: 0, y: -CELL_SIZE });
-        setFood({ x: getRandomCoordinate(), y: getRandomCoordinate() });
-        setIsGameOver(false);
-    };
-
-    return (
-        <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>Snake Game</Text>
-            <View style={styles.board}>
-                {snake.map((segment, index) => (
-                    <View key={index} style={[styles.snake, { left: segment.x, top: segment.y }]} />
-                ))}
-                <View style={[styles.food, { left: food.x, top: food.y }]} />
-            </View>
-            {isGameOver && (
-                <View style={styles.gameOver}>
-                    <Text style={styles.gameOverText}>Game Over</Text>
-                    <Button title="Restart" onPress={resetGame} />
-                </View>
-            )}
-        </SafeAreaView>
-    );
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>Google Health Data</Text>
+      <Button
+        disabled={!request}
+        title="Login with Google"
+        onPress={() => promptAsync()}
+      />
+      {accessToken && (
+        <Button title="Fetch Health Data" onPress={getHealthData} />
+      )}
+      {healthData && (
+        <View style={styles.dataContainer}>
+          <Text>Health Data:</Text>
+          <Text>{JSON.stringify(healthData, null, 2)}</Text>
+        </View>
+      )}
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F0F0F0',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-    },
-    board: {
-        width: BOARD_SIZE,
-        height: BOARD_SIZE,
-        backgroundColor: '#FFF',
-        borderColor: '#000',
-        borderWidth: 1,
-        position: 'relative',
-    },
-    snake: {
-        width: CELL_SIZE,
-        height: CELL_SIZE,
-        position: 'absolute',
-        backgroundColor: 'green',
-    },
-    food: {
-        width: CELL_SIZE,
-        height: CELL_SIZE,
-        position: 'absolute',
-        backgroundColor: 'red',
-    },
-    gameOver: {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: [{ translateX: -50 }, { translateY: -50 }],
-        alignItems: 'center',
-    },
-    gameOverText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 10,
-    },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    marginHorizontal: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  dataContainer: {
+    marginTop: 20,
+    backgroundColor: '#f0f0f0',
+    padding: 20,
+    borderRadius: 8,
+  },
 });
 
 export default App;
